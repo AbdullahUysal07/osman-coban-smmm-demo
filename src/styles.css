@@ -707,6 +707,17 @@ textarea:focus {
   gap: 18px;
 }
 
+.admin-title-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.logout-button {
+  margin-top: 14px;
+}
+
 .portal-hero {
   padding: 28px;
   border-radius: 8px;
@@ -1183,6 +1194,7 @@ textarea:focus {
   .topbar,
   .portal-hero,
   .admin-title,
+  .admin-title-actions,
   .table-tools {
     align-items: stretch;
     flex-direction: column;

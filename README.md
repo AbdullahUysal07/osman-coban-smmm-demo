@@ -17,8 +17,12 @@ Serbest Muhasebeci Mali Müşavir Osman Çoban için hazırlanmış, yeni mükel
 
 ## Demo Bilgileri
 
-- Ofis paneli PIN: `2026`
-- Mükellef işlemleri alanında seçim listesindeki demo erişim kodları kullanılabilir.
+- Ofis paneli şifresi: `Osman2026!`
+- Mükellef demo girişleri:
+  - `AKD-2026` / `Akdeniz2026!`
+  - `KLP-2026` / `Kepez2026!`
+  - `TRS-2026` / `Toros2026!`
+  - `NVA-2026` / `Nova2026!`
 - Dosya yükleme ve panel değişiklikleri bu demo sürümde tarayıcı `localStorage` alanında tutulur.
 
 ## Yerelde Çalıştırma

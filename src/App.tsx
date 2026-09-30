@@ -18,6 +18,8 @@ import {
   KeyRound,
   Landmark,
   LayoutDashboard,
+  LockKeyhole,
+  LogOut,
   Mail,
   MessageSquareText,
   Phone,
@@ -69,12 +71,19 @@ type Client = {
   nextDueDate: string;
   lastActivity: string;
   accessCode: string;
+  portalPassword: string;
   tasks: ClientTask[];
   documents: ClientDocument[];
 };
 
 const STORAGE_KEY = "osman-coban-smmm-demo-v1";
-const ADMIN_PIN = "2026";
+const ADMIN_PASSWORD = "Osman2026!";
+const CLIENT_PASSWORDS: Record<string, string> = {
+  akdeniz: "Akdeniz2026!",
+  kepez: "Kepez2026!",
+  toros: "Toros2026!",
+  nova: "Nova2026!",
+};
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("tr-TR", {
@@ -155,6 +164,7 @@ const createDemoClients = (): Client[] => {
       nextDueDate: dayFromNow(-8),
       lastActivity: "KDV özeti paylaşıldı",
       accessCode: "AKD-2026",
+      portalPassword: CLIENT_PASSWORDS.akdeniz,
       tasks: [
         { id: "t1", title: "Eylül banka ekstreleri", dueDate: dayFromNow(-3), status: "missing" },
         { id: "t2", title: "Taşeron hakediş listesi", dueDate: dayFromNow(2), status: "review" },
@@ -174,6 +184,7 @@ const createDemoClients = (): Client[] => {
       nextDueDate: dayFromNow(4),
       lastActivity: "Personel bildirimi bekleniyor",
       accessCode: "KLP-2026",
+      portalPassword: CLIENT_PASSWORDS.kepez,
       tasks: [
         { id: "t3", title: "Yeni personel giriş bilgileri", dueDate: dayFromNow(1), status: "missing" },
         { id: "t4", title: "Gider fişleri", dueDate: dayFromNow(5), status: "review" },
@@ -195,6 +206,7 @@ const createDemoClients = (): Client[] => {
       nextDueDate: dayFromNow(19),
       lastActivity: "Aidat ödendi",
       accessCode: "TRS-2026",
+      portalPassword: CLIENT_PASSWORDS.toros,
       tasks: [
         { id: "t5", title: "E-fatura mutabakatı", dueDate: dayFromNow(7), status: "done" },
         { id: "t6", title: "Stok sayım tutanağı", dueDate: dayFromNow(10), status: "review" },
@@ -216,6 +228,7 @@ const createDemoClients = (): Client[] => {
       nextDueDate: dayFromNow(9),
       lastActivity: "Sözleşme yenileme dönemi",
       accessCode: "NVA-2026",
+      portalPassword: CLIENT_PASSWORDS.nova,
       tasks: [
         { id: "t7", title: "Acenta komisyon dökümü", dueDate: dayFromNow(8), status: "missing" },
         { id: "t8", title: "Dövizli işlem listesi", dueDate: dayFromNow(12), status: "review" },
@@ -226,6 +239,15 @@ const createDemoClients = (): Client[] => {
     },
   ];
 };
+
+const withPortalPasswords = (clients: Client[]): Client[] =>
+  clients.map((client) => ({
+    ...client,
+    portalPassword:
+      client.portalPassword ??
+      CLIENT_PASSWORDS[client.id] ??
+      `${client.name.slice(0, 5).replace(/\s/g, "")}2026!`,
+  }));
 
 const getDueState = (client: Client): DueState => {
   if (client.balance <= 0) return "paid";
@@ -254,13 +276,16 @@ function App() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return createDemoClients();
     try {
-      return JSON.parse(saved) as Client[];
+      return withPortalPasswords(JSON.parse(saved) as Client[]);
     } catch {
       return createDemoClients();
     }
   });
   const [view, setView] = useState<View>("site");
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id ?? "akdeniz");
+  const [clientSessionId, setClientSessionId] = useState(
+    () => localStorage.getItem("osman-client-session") ?? ""
+  );
   const [filter, setFilter] = useState<"all" | DueState | "docs">("all");
   const [toast, setToast] = useState("");
   const [adminUnlocked, setAdminUnlocked] = useState(
@@ -274,6 +299,7 @@ function App() {
   }, [clients]);
 
   const selectedClient = clients.find((client) => client.id === selectedClientId) ?? clients[0];
+  const portalClient = clients.find((client) => client.id === clientSessionId) ?? null;
 
   const totals = useMemo(() => {
     const overdue = clients.filter((client) => getDueState(client) === "overdue");
@@ -308,13 +334,43 @@ function App() {
   const handleAdminLogin = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    if (form.get("pin") === ADMIN_PIN) {
+    if (form.get("password") === ADMIN_PASSWORD) {
       setAdminUnlocked(true);
       localStorage.setItem("osman-admin-unlocked", "true");
-      notify("Yönetim paneli açıldı.");
+      notify("Ofis paneli açıldı.");
       return;
     }
-    notify("PIN hatalı. Demo PIN: 2026");
+    notify("Şifre hatalı. Bilgileri kontrol edin.");
+  };
+
+  const handleAdminLogout = () => {
+    setAdminUnlocked(false);
+    localStorage.removeItem("osman-admin-unlocked");
+    notify("Ofis panelinden çıkış yapıldı.");
+  };
+
+  const handleClientLogin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const accessCode = String(form.get("accessCode") ?? "").trim().toLocaleUpperCase("tr-TR");
+    const password = String(form.get("password") ?? "");
+    const client = clients.find(
+      (item) => item.accessCode.toLocaleUpperCase("tr-TR") === accessCode && item.portalPassword === password
+    );
+    if (!client) {
+      notify("Mükellef kodu veya şifre hatalı.");
+      return;
+    }
+    setClientSessionId(client.id);
+    setSelectedClientId(client.id);
+    localStorage.setItem("osman-client-session", client.id);
+    notify(`${client.name} için giriş yapıldı.`);
+  };
+
+  const handleClientLogout = () => {
+    setClientSessionId("");
+    localStorage.removeItem("osman-client-session");
+    notify("Mükellef oturumu kapatıldı.");
   };
 
   const resetDemo = () => {
@@ -367,6 +423,7 @@ function App() {
       nextDueDate: dayFromNow(12),
       lastActivity: "Yeni mükellef kaydı açıldı",
       accessCode: `${name.slice(0, 3).toLocaleUpperCase("tr-TR")}-2026`,
+      portalPassword: `${name.slice(0, 5).replace(/\s/g, "")}2026!`,
       tasks: [
         { id: makeId(), title: "Açılış evrak seti", dueDate: dayFromNow(5), status: "missing" },
       ],
@@ -469,16 +526,18 @@ function App() {
           />
         )}
 
-        {view === "portal" && selectedClient && (
-          <ClientPortal
-            clients={clients}
-            selectedClient={selectedClient}
-            setSelectedClientId={setSelectedClientId}
-            onUpload={addUploadedFiles}
-            onTaskToggle={toggleTask}
-            onPayNotice={markPaid}
-          />
-        )}
+        {view === "portal" &&
+          (portalClient ? (
+            <ClientPortal
+              selectedClient={portalClient}
+              onUpload={addUploadedFiles}
+              onTaskToggle={toggleTask}
+              onPayNotice={markPaid}
+              onLogout={handleClientLogout}
+            />
+          ) : (
+            <ClientLogin onSubmit={handleClientLogin} />
+          ))}
 
         {view === "admin" &&
           (adminUnlocked ? (
@@ -500,6 +559,7 @@ function App() {
               onTaskToggle={toggleTask}
               onToggleShare={toggleDocumentShare}
               onReset={resetDemo}
+              onLogout={handleAdminLogout}
             />
           ) : (
             <AdminLogin onSubmit={handleAdminLogin} />
@@ -694,17 +754,38 @@ function SiteHome({
   );
 }
 
+function ClientLogin({ onSubmit }: { onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return (
+    <section className="login-section">
+      <form className="login-card client-login-card" onSubmit={onSubmit}>
+        <span className="eyebrow">Mükellef işlemleri</span>
+        <h1>Güvenli mükellef girişi</h1>
+        <p>Evrak yüklemek, paylaşılan belgeleri indirmek ve aidat durumunuzu görmek için size verilen mükellef kodu ve şifreyle giriş yapın.</p>
+        <label>
+          Mükellef kodu
+          <input name="accessCode" placeholder="AKD-2026" autoComplete="username" required />
+        </label>
+        <label>
+          Şifre
+          <input name="password" type="password" placeholder="••••••••" autoComplete="current-password" required />
+        </label>
+        <button className="primary-action" type="submit">
+          <LockKeyhole />
+          Giriş yap
+        </button>
+      </form>
+    </section>
+  );
+}
+
 function ClientPortal({
-  clients,
   selectedClient,
-  setSelectedClientId,
   onUpload,
   onTaskToggle,
   onPayNotice,
+  onLogout,
 }: {
-  clients: Client[];
   selectedClient: Client;
-  setSelectedClientId: (id: string) => void;
   onUpload: (
     files: FileList | null,
     clientId: string,
@@ -714,6 +795,7 @@ function ClientPortal({
   ) => Promise<void>;
   onTaskToggle: (clientId: string, taskId: string) => void;
   onPayNotice: (clientId: string) => void;
+  onLogout: () => void;
 }) {
   const dueState = getDueState(selectedClient);
   const sharedDocuments = selectedClient.documents.filter(
@@ -723,22 +805,17 @@ function ClientPortal({
   return (
     <section className="workspace-layout">
       <aside className="client-switcher">
-        <span className="eyebrow">Mükellef girişi</span>
-        <h2>Portal</h2>
-        <label>
-          Mükellef seç
-          <select value={selectedClient.id} onChange={(event) => setSelectedClientId(event.target.value)}>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name} · {client.accessCode}
-              </option>
-            ))}
-          </select>
-        </label>
+        <span className="eyebrow">Oturum açık</span>
+        <h2>{selectedClient.contact}</h2>
+        <p>{selectedClient.name}</p>
         <div className="access-note">
           <KeyRound />
-          <span>Demo kodu seçili mükellef satırında gösterilir. Üretimde bu alan tek kullanımlık güvenli bağlantıya çevrilir.</span>
+          <span>Mükellef kodunuz: {selectedClient.accessCode}. Üretimde bu alan güvenli hesap yönetimiyle çalışır.</span>
         </div>
+        <button className="ghost-action full logout-button" type="button" onClick={onLogout}>
+          <LogOut />
+          Çıkış yap
+        </button>
       </aside>
 
       <div className="portal-content">
@@ -821,17 +898,17 @@ function AdminLogin({ onSubmit }: { onSubmit: (event: FormEvent<HTMLFormElement>
     <section className="login-section">
       <form className="login-card" onSubmit={onSubmit}>
         <span className="eyebrow">Ofis içi takip alanı</span>
-        <h1>Ofis paneli</h1>
-        <p>Bu alan Osman Çoban SMMM ofisinin aidat, evrak ve mükellef süreçlerini takip etmesi için hazırlanmıştır.</p>
+        <h1>Şifreli ofis paneli</h1>
+        <p>Bu alan Osman Çoban SMMM ofisinin aidat, evrak ve mükellef süreçlerini takip etmesi için ayrılmıştır.</p>
         <label>
-          Demo PIN
-          <input name="pin" placeholder="2026" inputMode="numeric" autoComplete="off" />
+          Ofis şifresi
+          <input name="password" type="password" placeholder="••••••••" autoComplete="current-password" required />
         </label>
         <button className="primary-action" type="submit">
-          <ShieldCheck />
+          <LockKeyhole />
           Ofis paneline gir
         </button>
-        <small>Demo PIN: 2026</small>
+        <small>Demo şifreleri README içinde yer alır.</small>
       </form>
     </section>
   );
@@ -855,6 +932,7 @@ function AdminPanel({
   onTaskToggle,
   onToggleShare,
   onReset,
+  onLogout,
 }: {
   clients: Client[];
   filteredClients: Client[];
@@ -879,6 +957,7 @@ function AdminPanel({
   onTaskToggle: (clientId: string, taskId: string) => void;
   onToggleShare: (clientId: string, documentId: string) => void;
   onReset: () => void;
+  onLogout: () => void;
 }) {
   const dueState = getDueState(selectedClient);
 
@@ -889,10 +968,16 @@ function AdminPanel({
           <span className="eyebrow">Ofis içi operasyon</span>
           <h1>Mükellef operasyon paneli</h1>
         </div>
-        <button className="ghost-action" onClick={onReset}>
-          <RefreshCcw />
-          Demo verisini yenile
-        </button>
+        <div className="admin-title-actions">
+          <button className="ghost-action" onClick={onReset}>
+            <RefreshCcw />
+            Demo verisini yenile
+          </button>
+          <button className="secondary-action" onClick={onLogout}>
+            <LogOut />
+            Çıkış yap
+          </button>
+        </div>
       </div>
 
       <section className="metric-grid">
