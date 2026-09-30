@@ -432,9 +432,11 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => setView("site")} aria-label="Ana sayfa">
-          <span className="brand-mark">OÇ</span>
-          <span>
-            <strong>Osman Çoban</strong>
+          <span className="brand-wordmark">
+            <span className="brand-name-row">
+              <strong>Osman Çoban</strong>
+              <em>SMMM</em>
+            </span>
             <small>Serbest Muhasebeci Mali Müşavir</small>
           </span>
         </button>
